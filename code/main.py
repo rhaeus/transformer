@@ -15,6 +15,8 @@ from collections import Counter
 from torchtext.vocab import Vocab
 from datetime import datetime
 
+sents = []
+scors = []
 
 
 class TransformerModel(nn.Module):
@@ -34,9 +36,8 @@ class TransformerModel(nn.Module):
         decoder_layers = TransformerDecoderLayer(ninp, nhead, nhid, dropout)
         self.transformer_decoder = TransformerDecoder(decoder_layers, nlayers, norm=self.layer_norm)
 
-        
-    # self.decoder_layer = nn.TransformerDecoderLayer(d_model=hid_size, nhead = n_head, dim_feedforward=self.pf_size)
-    # self.decoder = nn.TransformerDecoder(self.decoder_layer, num_layers=n_layers, norm=self.layer_norm)
+        # self.decoder_layer = nn.TransformerDecoderLayer(d_model=hid_size, nhead = n_head, dim_feedforward=self.pf_size)
+        # self.decoder = nn.TransformerDecoder(self.decoder_layer, num_layers=n_layers, norm=self.layer_norm)
 
         self.encoder = nn.Embedding(ntoken, ninp)
 
@@ -73,16 +74,14 @@ class TransformerModel(nn.Module):
         src = self.encoder(src) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
 
-
-
-
         output = self.transformer_encoder(src, mask)
         # output = self.decoder(src, memory, tgt_mask=mask)
         # output = self.transformer_decoder(src, memory, tgt_mask=mask)
         # output = self.transformer_decoder(src, memory)
-        
+
         output = self.decoder(output)
         return output
+
 
 class PositionalEncoding(nn.Module):
 
@@ -102,37 +101,36 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
 
+
 class Trainer:
     def __init__(self):
         self.batch_size = 20
         self.eval_batch_size = 10
         self.bptt = 35
-        self.emsize = 256 # embedding dimension d_model
-        self.nhid = 256 # the dimension of the feedforward network model in nn.TransformerEncoder
-        self.nlayers = 3 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-        self.nhead = 2 # the number of heads in the multiheadattention models
-        self.dropout = 0.2 # the dropout value
+        self.emsize = 256  # embedding dimension d_model
+        self.nhid = 256  # the dimension of the feedforward network model in nn.TransformerEncoder
+        self.nlayers = 3  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+        self.nhead = 2  # the number of heads in the multiheadattention models
+        self.dropout = 0.2  # the dropout value
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         print("using device: ", self.device)
         self.load_data()
 
-        
         # (self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5):
-        self.model = TransformerModel(self.ntokens, self.emsize, self.nhead, self.nhid, self.nlayers, self.dropout).to(self.device)
+        self.model = TransformerModel(self.ntokens, self.emsize, self.nhead, self.nhid, self.nlayers, self.dropout).to(
+            self.device)
 
         self.criterion = nn.CrossEntropyLoss()
-        self.lr = 5.0 # learning rate
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr) #try Adam
-        
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 1.0, gamma=0.95)
+        self.lr = 5.0  # learning rate
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)  # try Adam
 
-        
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 1.0, gamma=0.95)
 
     def load_data(self):
         print("loading data..")
         # build vocab
         # self.train_iter = WikiText2(split='train')
-        with open('data/all_hp.txt', 'r', encoding='utf-8') as f:
+        with open('mergeNoEq.txt', 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
         self.tokenizer = get_tokenizer('basic_english')
@@ -141,7 +139,7 @@ class Trainer:
             counter.update(self.tokenizer(line))
         self.vocab = Vocab(counter)
 
-        self.ntokens = len(self.vocab.stoi) # the size of vocabulary
+        self.ntokens = len(self.vocab.stoi)  # the size of vocabulary
         # print(ntokens)
 
         # load data
@@ -150,7 +148,7 @@ class Trainer:
         val_len = math.floor(0.9 * len(lines))
 
         self.train_iter = lines[:train_len]
-        self.val_iter= lines[train_len:val_len]
+        self.val_iter = lines[train_len:val_len]
         self.test_iter = lines[val_len:]
 
         self.train_data = self.data_process(self.train_iter)
@@ -179,7 +177,7 @@ class Trainer:
 
     def data_process(self, raw_text_iter):
         data = [torch.tensor([self.vocab[token] for token in self.tokenizer(item)],
-                            dtype=torch.long) for item in raw_text_iter]
+                             dtype=torch.long) for item in raw_text_iter]
         return torch.cat(tuple(filter(lambda t: t.numel() > 0, data)))
 
     def batchify(self, data, bsz):
@@ -193,12 +191,12 @@ class Trainer:
 
     def get_batch(self, source, i):
         seq_len = min(self.bptt, len(source) - 1 - i)
-        data = source[i:i+seq_len]
-        target = source[i+1:i+1+seq_len].reshape(-1)
+        data = source[i:i + seq_len]
+        target = source[i + 1:i + 1 + seq_len].reshape(-1)
         return data, target
 
     def train_epoch(self, epoch):
-        self.model.train() # Turn on the train mode
+        self.model.train()  # Turn on the train mode
         total_loss = 0.
         start_time = time.time()
         src_mask = self.model.generate_square_subsequent_mask(self.bptt).to(self.device)
@@ -219,16 +217,16 @@ class Trainer:
                 cur_loss = total_loss / log_interval
                 elapsed = time.time() - start_time
                 print('| epoch {:3d} | {:5d}/{:5d} batches | '
-                    'lr {:02.2f} | ms/batch {:5.2f} | '
-                    'loss {:5.2f} | ppl {:8.2f}'.format(
-                        epoch, batch, len(self.train_data) // self.bptt, self.scheduler.get_last_lr()[0],
-                        elapsed * 1000 / log_interval,
-                        cur_loss, math.exp(cur_loss)))
+                      'lr {:02.2f} | ms/batch {:5.2f} | '
+                      'loss {:5.2f} | ppl {:8.2f}'.format(
+                    epoch, batch, len(self.train_data) // self.bptt, self.scheduler.get_last_lr()[0],
+                                  elapsed * 1000 / log_interval,
+                    cur_loss, math.exp(cur_loss)))
                 total_loss = 0
                 start_time = time.time()
 
     def evaluate(self, eval_model, data_source):
-        eval_model.eval() # Turn on the evaluation mode
+        eval_model.eval()  # Turn on the evaluation mode
         total_loss = 0.
         src_mask = self.model.generate_square_subsequent_mask(self.bptt).to(self.device)
         with torch.no_grad():
@@ -244,7 +242,7 @@ class Trainer:
     def train(self):
         print("starting training")
         best_val_loss = float("inf")
-        epochs = 5 # The number of epochs
+        epochs = 1  # The number of epochs
         best_model = None
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # print(device)
@@ -256,8 +254,8 @@ class Trainer:
             val_loss = self.evaluate(self.model, self.val_data)
             print('-' * 89)
             print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
-                'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                            val_loss, math.exp(val_loss)))
+                  'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
+                                             val_loss, math.exp(val_loss)))
             print('-' * 89)
 
             if val_loss < best_val_loss:
@@ -267,7 +265,7 @@ class Trainer:
             self.scheduler.step()
 
         time_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        model_name = "models/model_{}.pth".format(time_string)
+        model_name = "model_{}.pth".format(time_string)
         torch.save(best_model.state_dict(), model_name)
         self.model = best_model
 
@@ -282,14 +280,14 @@ class Trainer:
         src = text.split()
         # print(src)
         data = [torch.tensor([self.vocab[token] for token in self.tokenizer(item)],
-                            dtype=torch.long) for item in src]
+                             dtype=torch.long) for item in src]
         return torch.cat(tuple(filter(lambda t: t.numel() > 0, data)))
 
     def generate_sequence(self, model, src, len, topk):
         # model.to('cpu')
-        #src = [sent_len]
+        # src = [sent_len]
         src = src.unsqueeze(1)
-        #src = [sent_len, 1]
+        # src = [sent_len, 1]
         generate_step = 0
         maxLoop = 10
         while generate_step < len:
@@ -300,25 +298,25 @@ class Trainer:
             # print("out 2", out)
             # print("out 3", out[-1, :])
             # #out = [sent_len + 1, 1, vocab_size]
-            res, ind = torch.topk(out[-1, :], topk, dim=1) #torch.return_types.topk(
-                                                        # values=tensor([[37.3671, 35.0489, 34.6765, 34.2863, 33.8337]], device='cuda:0',
-                                                        # grad_fn=<TopkBackward>),
-                                                        # indices=tensor([[291, 246, 146,  57, 314]], device='cuda:0'))
+            res, ind = torch.topk(out[-1, :], topk, dim=1)  # torch.return_types.topk(
+            # values=tensor([[37.3671, 35.0489, 34.6765, 34.2863, 33.8337]], device='cuda:0',
+            # grad_fn=<TopkBackward>),
+            # indices=tensor([[291, 246, 146,  57, 314]], device='cuda:0'))
             # print("res", res) # res tensor([[37.3671, 35.0489, 34.6765, 34.2863, 33.8337]], device='cuda:0',grad_fn=<TopkBackward>)
             # print("ind", ind) # ind tensor([[291, 246, 146,  57, 314]], device='cuda:0')
             # print("ind size", ind.size(1)) # topk
             perm = torch.randperm(topk)
             idx = perm[:1]
-            
+
             # print("idx", idx)
             # print("idx", idx.item())
-            sample = ind[:,idx.item()]
+            sample = ind[:, idx.item()]
 
             count = 0
             while sample == 0:
                 perm = torch.randperm(topk)
                 idx = perm[:1]
-                sample = ind[:,idx.item()]
+                sample = ind[:, idx.item()]
                 count += 1
                 if count >= 10:
                     break
@@ -335,8 +333,47 @@ class Trainer:
             src = src.squeeze(1)
         return src
 
+    def generate_text_beam(self, src, len, topk1):
+        model.to('cpu')
+        src = src.unsqueeze(1)
+        generate_step = 0
+
+        while generate_step < len:
+            topk = topk1
+            src_mask = model.generate_square_subsequent_mask(src.size(0))
+            out = model(src, src_mask)
+
+            m = nn.LogSoftmax(dim=1)
+            input = torch.randn(10, 3)
+            output = m(out[-1, :])
+            res, ind = torch.topk(output, topk, dim=1)
+            perm = torch.tensor([topk - 1])
+
+            idx = perm[:1]
+
+            sample = ind[:, idx.item()]
+            res = res[:, idx.item()]
+            topk += 1
+
+            while sample == 0:
+                res, ind = torch.topk(output, topk, dim=1)
+                perm = torch.tensor([topk - 1])
+                idx = perm[:1]
+                sample = ind[:, idx.item()]
+                res = res[:, idx.item()]
+                topk += 1
+
+            out = sample.unsqueeze(0)
+
+            src = torch.cat((src, out), dim=0)
+
+            generate_step += 1
+        src = src.squeeze(1)
+
+        return src, res.item(), topk
+
     def generate_text(self, model):
-        # source_sentence = "Cedric Diggory was an extremely handsome boy" 
+        # source_sentence = "Cedric Diggory was an extremely handsome boy"
         # source_sentence = "Hermione came over the crest of the hill"
         source_sentence = "Harry Potter was the"
         # source_sentence = "Why don't you just work you fucking fuck"
@@ -351,24 +388,105 @@ class Trainer:
 
         # device = "cpu"
 
-        generated_sequence = self.generate_text(x,25,2)
+        # generated_sequence = self.generate_text(x,25,2)
+        len = 6
+        # ---
+        generated_sequence, res, topk = self.generate_text_beam(x, len, 1)
         # print(generated_sequence)
         words = [self.vocab.itos[word_idx] for word_idx in generated_sequence]
         print(' '.join(words))
 
+        nodes = []
+        for k in range(int(len / 6)):
+            scors = []
+            sents = []
+            nodes.append(Node("start", -20, 0, source_sentence))
+            nodes[k].buildTree()
+            nodes[k].returnTree()
+            max = -100000
+            index = 0
+            a = 0
+            for i in (scors):
+                if i > max:
+                    max = i
+                    index = a
+                a += 1
+            source_sentence = sents[index]
+        print(sents[index])
+
+    def returnvocab(self, generated_sequence):
+        words = [self.vocab.itos[word_idx] for word_idx in generated_sequence]
+        return words
+
+
+class Node:
+    def __init__(self, sentence, score, step, src):
+        self.children = []
+        self.sentence = sentence
+        self.score = score
+        self.step = step
+        self.len = 6
+        self.topk = 4
+        self.src = src
+        # self.tokenizer = get_tokenizer('basic_english')
+
+    def PrintTree(self):
+        for i in range(self.topk):
+            # print(len(self.children))
+            if (self.step == self.len):
+                print(self.src)
+                print(self.score)
+                print(self.step)
+                break
+            else:
+                self.children[i].PrintTree()
+        # print(self.sentence)
+        # print(self.score)
+
+    def returnTree(self):
+        for i in range(self.topk):
+            if (self.step == self.len):
+                sents.append(self.src)
+                scors.append(self.score)
+                break
+                # return self.src, self.score
+            else:
+                self.children[i].returnTree()
+
+    def buildTree(self):
+        if (self.step) < self.len:
+            topk1 = 1
+            for j in range(1, self.topk + 1):
+                x = Trainer.preprocess_text(Trainer(), self.src)
+                generated_sequence, res, topk1 = Trainer.generate_text_beam(Trainer(), x, 1, topk1)
+                words = Trainer.returnvocab(Trainer(), generated_sequence)
+                # words = [vocab.itos[word_idx] for word_idx in generated_sequence]
+                words = ' '.join(words)
+
+                self.children.append(Node(generated_sequence, res + self.score, self.step + 1, words))
+                self.children[j - 1].buildTree()
+
+
+#    def preprocess_text(self, text):
+#        src = text.split()
+# print(src)
+#        data = [torch.tensor([self.vocab[token] for token in self.tokenizer(item)],
+#                             dtype=torch.long) for item in src]
+#        return torch.cat(tuple(filter(lambda t: t.numel() > 0, data)))
+###
 
 # def train_model():
 #     trainer = Trainer()
 #     model = trainer.train()
 
-    
+
 if __name__ == "__main__":
     trainer = Trainer()
     model = trainer.train()
     trainer.generate_text(model)
-    
 
-    
+
+
 
 
 
