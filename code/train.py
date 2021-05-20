@@ -16,91 +16,7 @@ from torchtext.vocab import Vocab
 from datetime import datetime
 
 
-
-class TransformerModel(nn.Module):
-
-    def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5):
-        super(TransformerModel, self).__init__()
-        self.ninp = ninp
-        self.nhid = nhid
-
-        self.model_type = 'Transformer'
-        self.pos_encoder = PositionalEncoding(ninp, dropout)
-        encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
-        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
-
-        self.layer_norm = nn.LayerNorm(self.nhid)
-        # torch.nn.TransformerDecoderLayer(d_model, nhead, dim_feedforward=2048, dropout=0.1, activation='relu')
-        decoder_layers = TransformerDecoderLayer(ninp, nhead, nhid, dropout)
-        self.transformer_decoder = TransformerDecoder(decoder_layers, nlayers, norm=self.layer_norm)
-
-        
-    # self.decoder_layer = nn.TransformerDecoderLayer(d_model=hid_size, nhead = n_head, dim_feedforward=self.pf_size)
-    # self.decoder = nn.TransformerDecoder(self.decoder_layer, num_layers=n_layers, norm=self.layer_norm)
-
-        self.encoder = nn.Embedding(ntoken, ninp)
-
-        self.decoder = nn.Linear(ninp, ntoken)
-
-        self.init_weights()
-
-    def generate_square_subsequent_mask(self, sz):
-        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        return mask
-
-    def init_weights(self):
-        initrange = 0.1
-        self.encoder.weight.data.uniform_(-initrange, initrange)
-
-        self.decoder.bias.data.zero_()
-        self.decoder.weight.data.uniform_(-initrange, initrange)
-
-    def forward(self, src, mask):
-        # src.to(device)
-        # src_mask.to(device)
-        sent_len, batch_s = src.shape[0], src.shape[1]
-        # print("sent len ", sent_len)
-        # print("batch size ", batch_s)
-
-        # # memory = torch.zeros(1, self.ninp, self.nhid).to(device)
-        # memory = torch.zeros(1, batch_s, self.nhid, device=self.device)
-        # print("src ", src.size())
-        # print("memory ", memory.size())
-        # print(mask.size())
-
-        # text embedding and positional encoding
-        src = self.encoder(src) * math.sqrt(self.ninp)
-        src = self.pos_encoder(src)
-
-
-
-
-        output = self.transformer_encoder(src, mask)
-        # output = self.decoder(src, memory, tgt_mask=mask)
-        # output = self.transformer_decoder(src, memory, tgt_mask=mask)
-        # output = self.transformer_decoder(src, memory)
-        
-        output = self.decoder(output)
-        return output
-
-class PositionalEncoding(nn.Module):
-
-    def __init__(self, d_model, dropout=0.1, max_len=5000):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        x = x + self.pe[:x.size(0), :]
-        return self.dropout(x)
+from transformer_model import PositionalEncoding, TransformerModel
 
 class Trainer:
     def __init__(self):
@@ -112,8 +28,11 @@ class Trainer:
         self.nlayers = 3 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
         self.nhead = 2 # the number of heads in the multiheadattention models
         self.dropout = 0.2 # the dropout value
+        self.epochs = 1 # The number of epochs
+
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         print("using device: ", self.device)
+        
         self.load_data()
 
         
@@ -244,13 +163,13 @@ class Trainer:
     def train(self):
         print("starting training")
         best_val_loss = float("inf")
-        epochs = 5 # The number of epochs
+        
         best_model = None
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # print(device)
         self.model.to(self.device)
 
-        for epoch in range(1, epochs + 1):
+        for epoch in range(1, self.epochs + 1):
             epoch_start_time = time.time()
             self.train_epoch(epoch)
             val_loss = self.evaluate(self.model, self.val_data)
@@ -266,9 +185,9 @@ class Trainer:
 
             self.scheduler.step()
 
-        time_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        model_name = "models/model_{}.pth".format(time_string)
-        torch.save(best_model.state_dict(), model_name)
+        # time_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # model_name = "model_{}.pth".format(time_string)
+        torch.save(best_model, "model.pth")
         self.model = best_model
 
         test_loss = self.evaluate(best_model, self.test_data)
@@ -276,96 +195,12 @@ class Trainer:
         print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
             test_loss, math.exp(test_loss)))
         print('=' * 89)
-        return best_model
-
-    def preprocess_text(self, text):
-        src = text.split()
-        # print(src)
-        data = [torch.tensor([self.vocab[token] for token in self.tokenizer(item)],
-                            dtype=torch.long) for item in src]
-        return torch.cat(tuple(filter(lambda t: t.numel() > 0, data)))
-
-    def generate_sequence(self, model, src, len, topk):
-        # model.to('cpu')
-        #src = [sent_len]
-        src = src.unsqueeze(1)
-        #src = [sent_len, 1]
-        generate_step = 0
-        maxLoop = 10
-        while generate_step < len:
-            src_mask = model.generate_square_subsequent_mask(src.size(0))
-            # src.to(device)
-            out = model(src, src_mask)
-            # print("out 1 ", out.size())
-            # print("out 2", out)
-            # print("out 3", out[-1, :])
-            # #out = [sent_len + 1, 1, vocab_size]
-            res, ind = torch.topk(out[-1, :], topk, dim=1) #torch.return_types.topk(
-                                                        # values=tensor([[37.3671, 35.0489, 34.6765, 34.2863, 33.8337]], device='cuda:0',
-                                                        # grad_fn=<TopkBackward>),
-                                                        # indices=tensor([[291, 246, 146,  57, 314]], device='cuda:0'))
-            # print("res", res) # res tensor([[37.3671, 35.0489, 34.6765, 34.2863, 33.8337]], device='cuda:0',grad_fn=<TopkBackward>)
-            # print("ind", ind) # ind tensor([[291, 246, 146,  57, 314]], device='cuda:0')
-            # print("ind size", ind.size(1)) # topk
-            perm = torch.randperm(topk)
-            idx = perm[:1]
-            
-            # print("idx", idx)
-            # print("idx", idx.item())
-            sample = ind[:,idx.item()]
-
-            count = 0
-            while sample == 0:
-                perm = torch.randperm(topk)
-                idx = perm[:1]
-                sample = ind[:,idx.item()]
-                count += 1
-                if count >= 10:
-                    break
-
-            # print("sample", sample)
-            out = sample.unsqueeze(0)
-
-            # out = torch.argmax(out[-1, :], dim=1) # [1] // index of the largest element: tensor([291], device='cuda:0')
-            # print("out1", out)
-            # out = out.unsqueeze(0) #[1,1] tensor([[291]], device='cuda:0')
-            # print("out2", out)
-            src = torch.cat((src, out), dim=0)
-            generate_step += 1
-            src = src.squeeze(1)
-        return src
-
-    def generate_text(self, model):
-        # source_sentence = "Cedric Diggory was an extremely handsome boy" 
-        # source_sentence = "Hermione came over the crest of the hill"
-        source_sentence = "Harry Potter was the"
-        # source_sentence = "Why don't you just work you fucking fuck"
-        source_sentence = source_sentence.lower()
-        # source_sentence = source_sentence.split()
-        print(source_sentence)
-        model.eval()
-        print(' '.join(source_sentence))
-        print()
-        # x = TEXT.numericalize([source_sentence]).to(device).squeeze(1)
-        x = self.preprocess_text(source_sentence)
-
-        # device = "cpu"
-
-        generated_sequence = self.generate_text(x,25,2)
-        # print(generated_sequence)
-        words = [self.vocab.itos[word_idx] for word_idx in generated_sequence]
-        print(' '.join(words))
 
 
-# def train_model():
-#     trainer = Trainer()
-#     model = trainer.train()
-
-    
 if __name__ == "__main__":
     trainer = Trainer()
-    model = trainer.train()
-    trainer.generate_text(model)
+    trainer.train()
+
     
 
     
