@@ -32,12 +32,12 @@ class Trainer:
         self.batch_size = 20
         self.eval_batch_size = 10
         self.bptt = 35
-        self.emsize = 256 # embedding dimension d_model
+        self.emsize = 128 # embedding dimension d_model
         self.nhid = 256 # the dimension of the feedforward network model in nn.TransformerEncoder
         self.nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
         self.nhead = 2 # the number of heads in the multiheadattention models
         self.dropout = 0.1 # the dropout value
-        self.epochs = 1 # The number of epochs
+        self.epochs = 10 # The number of epochs
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         print("using device: ", self.device)
@@ -49,7 +49,7 @@ class Trainer:
             self.device)
 
         self.criterion = nn.CrossEntropyLoss()
-        self.lr = 5.0  # learning rate
+        self.lr = 1.0  # learning rate
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)  # try Adam
 
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 1.0, gamma=0.95)
