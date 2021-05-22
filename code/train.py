@@ -49,7 +49,7 @@ class Trainer:
             self.device)
 
         self.criterion = nn.CrossEntropyLoss()
-        self.lr = 1.0  # learning rate
+        self.lr = 1.5  # learning rate
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)  # try Adam
 
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 1.0, gamma=0.95)
