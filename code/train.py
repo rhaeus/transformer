@@ -29,12 +29,12 @@ class Trainer:
           os.remove(file_name)
         self.log_file = open(file_name, "a")
 
-        self.batch_size = 100
-        self.eval_batch_size = 50
+        self.batch_size = 20
+        self.eval_batch_size = 10
         self.bptt = 35
         self.emsize = 128 # embedding dimension d_model
         self.nhid = 2048 # the dimension of the feedforward network model in nn.TransformerEncoder
-        self.nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+        self.nlayers = 3 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
         self.nhead = 2 # the number of heads in the multiheadattention models
         self.dropout = 0.1 # the dropout value
         self.epochs = 10 # The number of epochs
