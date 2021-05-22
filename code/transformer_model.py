@@ -42,17 +42,23 @@ class TransformerModel(nn.Module):
         # self.decoder.bias.data.zero_()
         # self.decoder.weight.data.uniform_(-initrange, initrange)
 
-        for p in self.encoder.parameters():
-          if p.dim() > 1:
-              nn.init.xavier_uniform_(p)
+        # for p in self.encoder.parameters():
+        #   if p.dim() > 1:
+        #       nn.init.xavier_uniform_(p)
 
-        for p in self.decoder.parameters():
-          if p.dim() > 1:
-              nn.init.xavier_uniform_(p)
+        # for p in self.decoder.parameters():
+        #   if p.dim() > 1:
+        #       nn.init.xavier_uniform_(p)
 
-        for p in self.transformer_encoder.parameters():
-          if p.dim() > 1:
-              nn.init.xavier_uniform_(p)
+        # for p in self.transformer_encoder.parameters():
+        #   if p.dim() > 1:
+        #       nn.init.xavier_uniform_(p)
+
+
+        self.decoder.bias.data.zero_()
+        nn.init.xavier_uniform_(self.encoder.weight.data)
+        nn.init.xavier_uniform_(self.decoder.weight.data)
+
 
     def forward(self, src, mask):
         # src.to(device)
