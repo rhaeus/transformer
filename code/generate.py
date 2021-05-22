@@ -158,7 +158,7 @@ class Generator:
       # source_sentence = "Why don't you just work you fucking fuck"
       source_sentence = source_sentence.lower()
       # source_sentence = source_sentence.split()
-      print(source_sentence)
+      print("Source sentence: ", source_sentence)
       # print(' '.join(source_sentence))
       print()
       # x = TEXT.numericalize([source_sentence]).to(device).squeeze(1)
@@ -167,6 +167,7 @@ class Generator:
       generated_sequence = self.generate_sequence(x,25,2)
       # print(generated_sequence)
       words = [self.vocab.itos[word_idx] for word_idx in generated_sequence]
+      print("Generated text: ")
       print(' '.join(words))
 
     def generate_sequence_beam(self, src, len, topk1):

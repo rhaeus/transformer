@@ -14,6 +14,7 @@ from torchtext.data.utils import get_tokenizer
 from collections import Counter
 from torchtext.vocab import Vocab
 from datetime import datetime
+import os
 
 sents = []
 scors = []
@@ -23,6 +24,11 @@ from transformer_model import PositionalEncoding, TransformerModel
 
 class Trainer:
     def __init__(self):
+        file_name = "training_log.txt"
+        if os.path.exists(file_name):
+          os.remove(file_name)
+        self.log_file = open(file_name, "a")
+
         self.batch_size = 20
         self.eval_batch_size = 10
         self.bptt = 35
@@ -31,7 +37,7 @@ class Trainer:
         self.nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
         self.nhead = 2 # the number of heads in the multiheadattention models
         self.dropout = 0.1 # the dropout value
-        self.epochs = 10 # The number of epochs
+        self.epochs = 1 # The number of epochs
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         print("using device: ", self.device)
@@ -52,7 +58,7 @@ class Trainer:
         print("loading data..")
         # build vocab
         # self.train_iter = WikiText2(split='train')
-        with open('mergeNoEq.txt', 'r', encoding='utf-8') as f:
+        with open('all_hp.txt', 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
         self.tokenizer = get_tokenizer('basic_english')
@@ -138,12 +144,15 @@ class Trainer:
             if batch % log_interval == 0 and batch > 0:
                 cur_loss = total_loss / log_interval
                 elapsed = time.time() - start_time
-                print('| epoch {:3d} | {:5d}/{:5d} batches | '
-                      'lr {:02.2f} | ms/batch {:5.2f} | '
-                      'loss {:5.2f} | ppl {:8.2f}'.format(
-                    epoch, batch, len(self.train_data) // self.bptt, self.scheduler.get_last_lr()[0],
-                                  elapsed * 1000 / log_interval,
-                    cur_loss, math.exp(cur_loss)))
+                log = '| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | loss {:5.2f} | ppl {:8.2f}'.format(
+                        epoch, batch, len(self.train_data) // self.bptt, self.scheduler.get_last_lr()[0],
+                                    elapsed * 1000 / log_interval,
+                        cur_loss, math.exp(cur_loss))
+                log += '\n'
+
+                print(log)
+                self.log_file.write(log)
+
                 total_loss = 0
                 start_time = time.time()
 
@@ -174,11 +183,16 @@ class Trainer:
             epoch_start_time = time.time()
             self.train_epoch(epoch)
             val_loss = self.evaluate(self.model, self.val_data)
-            print('-' * 89)
-            print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
-                  'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                             val_loss, math.exp(val_loss)))
-            print('-' * 89)
+            log = '-' * 89
+            log += '\n'
+            log += '| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
+                                             val_loss, math.exp(val_loss))
+            log += '\n'
+            log += '-' * 89
+            log += '\n'
+
+            print(log)
+            self.log_file.write(log)
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
@@ -192,10 +206,17 @@ class Trainer:
         self.model = best_model
 
         test_loss = self.evaluate(best_model, self.test_data)
-        print('=' * 89)
-        print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
-            test_loss, math.exp(test_loss)))
-        print('=' * 89)
+        log = '=' * 89
+        log += '\n'
+        log += '| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
+            test_loss, math.exp(test_loss))
+        log += '\n'
+        log += '=' * 89
+        log += '\n'
+
+        print(log)
+        self.log_file.write(log)
+
 
 
 if __name__ == "__main__":
