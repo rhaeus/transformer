@@ -28,10 +28,10 @@ class Trainer:
         self.bptt = 35
         self.emsize = 256 # embedding dimension d_model
         self.nhid = 256 # the dimension of the feedforward network model in nn.TransformerEncoder
-        self.nlayers = 3 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+        self.nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
         self.nhead = 2 # the number of heads in the multiheadattention models
-        self.dropout = 0.2 # the dropout value
-        self.epochs = 1 # The number of epochs
+        self.dropout = 0.1 # the dropout value
+        self.epochs = 10 # The number of epochs
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         print("using device: ", self.device)
