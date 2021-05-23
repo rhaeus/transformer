@@ -36,12 +36,14 @@ class TransformerModel(nn.Module):
         return mask
 
     def init_weights(self):
-        # initrange = 0.1
-        # self.encoder.weight.data.uniform_(-initrange, initrange)
+        # tutorial 
+        initrange = 0.1
+        self.encoder.weight.data.uniform_(-initrange, initrange)
 
-        # self.decoder.bias.data.zero_()
-        # self.decoder.weight.data.uniform_(-initrange, initrange)
+        self.decoder.bias.data.zero_()
+        self.decoder.weight.data.uniform_(-initrange, initrange)
 
+        # xavier v1
         # for p in self.encoder.parameters():
         #   if p.dim() > 1:
         #       nn.init.xavier_uniform_(p)
@@ -54,10 +56,10 @@ class TransformerModel(nn.Module):
         #   if p.dim() > 1:
         #       nn.init.xavier_uniform_(p)
 
-
-        self.decoder.bias.data.zero_()
-        nn.init.xavier_uniform_(self.encoder.weight.data)
-        nn.init.xavier_uniform_(self.decoder.weight.data)
+        # xavier v2
+        # self.decoder.bias.data.zero_()
+        # nn.init.xavier_uniform_(self.encoder.weight.data)
+        # nn.init.xavier_uniform_(self.decoder.weight.data)
 
 
     def forward(self, src, mask):
