@@ -75,7 +75,7 @@ class Trainer:
         self.nlayers = 6 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
         self.nhead = 2 # the number of heads in the multiheadattention models
         self.dropout = 0.15 # the dropout value
-        self.epochs = 12 # The number of epochs
+        self.epochs = 25 # The number of epochs
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         print("using device: ", self.device)
@@ -93,7 +93,7 @@ class Trainer:
 
         # optim = torch.optim.Adam(self.model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
         optim = torch.optim.SGD(self.model.parameters(), lr=self.lr)  # try Adam
-        self.optimizer = PaperOpt(self.emsize, 1200, 4000, optim)
+        self.optimizer = PaperOpt(self.emsize, 1300, 4000, optim)
 
     def load_data(self):
         print("loading data..")
