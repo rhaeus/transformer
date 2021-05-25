@@ -71,12 +71,18 @@ class Trainer:
         self.log_csv = open(file_name, "a")
         self.log_csv.write("step;lr;trainingloss;trainingppl\n")
 
+        file_name = "epoch_log.csv"
+        if os.path.exists(file_name):
+          os.remove(file_name)
+        self.epochlog_csv = open(file_name, "a")
+        self.epochlog_csv.write("epoch;validloss;validppl\n")
+
         self.stepcount = 0
 
         self.batch_size = 20
         self.eval_batch_size = 10
         self.bptt = 35
-        self.emsize = 128 # embedding dimension d_model
+        self.emsize = 64 # embedding dimension d_model
         self.nhid = 2048 # the dimension of the feedforward network model in nn.TransformerEncoder
         self.nlayers = 6 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
         self.nhead = 8 # the number of heads in the multiheadattention models
@@ -206,7 +212,7 @@ class Trainer:
 
                 total_loss = 0
                 start_time = time.time()
-                
+
             self.stepcount += 1
             
 
@@ -248,6 +254,9 @@ class Trainer:
             print(log)
             print("steps:", trainer.stepcount)
             self.log_file.write(log)
+
+            epochlog = '{:3d};{:5.2f};{:8.2f}\n'.format(epoch, val_loss, math.exp(val_loss))
+            self.epochlog_csv.write(epochlog)
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
