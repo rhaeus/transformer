@@ -65,15 +65,21 @@ class Trainer:
           os.remove(file_name)
         self.log_file = open(file_name, "a")
 
+        file_name = "log.csv"
+        if os.path.exists(file_name):
+          os.remove(file_name)
+        self.log_csv = open(file_name, "a")
+        self.log_csv.write("step;lr;trainingloss;trainingppl\n")
+
         self.stepcount = 0
 
         self.batch_size = 20
         self.eval_batch_size = 10
         self.bptt = 35
-        self.emsize = 132 # embedding dimension d_model
+        self.emsize = 128 # embedding dimension d_model
         self.nhid = 2048 # the dimension of the feedforward network model in nn.TransformerEncoder
         self.nlayers = 6 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-        self.nhead = 6 # the number of heads in the multiheadattention models
+        self.nhead = 8 # the number of heads in the multiheadattention models
         self.dropout = 0.15 # the dropout value
         self.epochs = 25 # The number of epochs
 
@@ -179,11 +185,10 @@ class Trainer:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
             self.optimizer.step()
-            self.stepcount += 1
             
 
             total_loss += loss.item()
-            log_interval = 200
+            log_interval = 10
             if batch % log_interval == 0 and batch > 0:
                 cur_loss = total_loss / log_interval
                 elapsed = time.time() - start_time
@@ -196,8 +201,14 @@ class Trainer:
                 print(log)
                 self.log_file.write(log)
 
+                csvlog = '{:5d};{:02.2f};{:5.2f};{:8.2f}\n'.format(self.stepcount, self.optimizer.get_last_lr(),cur_loss, math.exp(cur_loss))
+                self.log_csv.write(csvlog)
+
                 total_loss = 0
                 start_time = time.time()
+                
+            self.stepcount += 1
+            
 
     def evaluate(self, eval_model, data_source):
         eval_model.eval()  # Turn on the evaluation mode
