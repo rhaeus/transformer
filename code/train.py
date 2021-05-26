@@ -82,10 +82,10 @@ class Trainer:
         self.batch_size = 20
         self.eval_batch_size = 10
         self.bptt = 35
-        self.emsize = 132 # embedding dimension d_model
+        self.emsize = 128 # embedding dimension d_model
         self.nhid = 2048 # the dimension of the feedforward network model in nn.TransformerEncoder
         self.nlayers = 6 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-        self.nhead = 6 # the number of heads in the multiheadattention models
+        self.nhead = 4 # the number of heads in the multiheadattention models
         self.dropout = 0.15 # the dropout value
         self.epochs = 25 # The number of epochs
 
