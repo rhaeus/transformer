@@ -21,6 +21,42 @@ scors = []
 
 from transformer_model import PositionalEncoding, TransformerModel
 
+class PaperOpt:
+    "Optim wrapper that implements rate."
+    def __init__(self, model_size, factor, warmup, optimizer):
+        self.optimizer = optimizer
+        self._step = 0
+        self.warmup = warmup
+        self.factor = factor
+        self.model_size = model_size
+        self._rate = 0
+        
+    def step(self):
+        "Update parameters and rate"
+        
+        self._step += 1
+        # print("step: ", self._step)
+        rate = self.rate()
+        # print("rate: ", rate)
+        for p in self.optimizer.param_groups:
+            p['lr'] = rate
+        self._rate = rate
+        self.optimizer.step()
+        
+    def rate(self, step_num = None):
+        "Implement `lrate` above"
+        if step_num is None:
+            step_num = self._step
+
+        return self.factor * \
+            (self.model_size ** (-0.5) *
+            min(step_num ** (-0.5), step_num * self.warmup ** (-1.5)))
+
+    def get_last_lr(self):
+      return self._rate
+
+    def zero_grad(self):
+      self.optimizer.zero_grad()
 
 class Trainer:
     def __init__(self):
@@ -29,15 +65,29 @@ class Trainer:
           os.remove(file_name)
         self.log_file = open(file_name, "a")
 
+        file_name = "log.csv"
+        if os.path.exists(file_name):
+          os.remove(file_name)
+        self.log_csv = open(file_name, "a")
+        self.log_csv.write("step;lr;trainingloss;trainingppl\n")
+
+        file_name = "epoch_log.csv"
+        if os.path.exists(file_name):
+          os.remove(file_name)
+        self.epochlog_csv = open(file_name, "a")
+        self.epochlog_csv.write("epoch;validloss;validppl\n")
+
+        self.stepcount = 0
+
         self.batch_size = 20
         self.eval_batch_size = 10
         self.bptt = 35
-        self.emsize = 256 # embedding dimension d_model
-        self.nhid = 256 # the dimension of the feedforward network model in nn.TransformerEncoder
-        self.nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-        self.nhead = 2 # the number of heads in the multiheadattention models
-        self.dropout = 0.1 # the dropout value
-        self.epochs = 1 # The number of epochs
+        self.emsize = 128 # embedding dimension d_model
+        self.nhid = 2048 # the dimension of the feedforward network model in nn.TransformerEncoder
+        self.nlayers = 6 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+        self.nhead = 4 # the number of heads in the multiheadattention models
+        self.dropout = 0.15 # the dropout value
+        self.epochs = 25 # The number of epochs
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         print("using device: ", self.device)
@@ -49,10 +99,13 @@ class Trainer:
             self.device)
 
         self.criterion = nn.CrossEntropyLoss()
-        self.lr = 5.0  # learning rate
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)  # try Adam
+        self.lr = 1.5  # learning rate
+        # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)  # try Adam
+        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 1.0, gamma=0.95)
 
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 1.0, gamma=0.95)
+        # optim = torch.optim.Adam(self.model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
+        optim = torch.optim.SGD(self.model.parameters(), lr=self.lr)  # try Adam
+        self.optimizer = PaperOpt(self.emsize, 1300, 4000, optim)
 
     def load_data(self):
         print("loading data..")
@@ -138,14 +191,15 @@ class Trainer:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
             self.optimizer.step()
+            
 
             total_loss += loss.item()
-            log_interval = 200
+            log_interval = 10
             if batch % log_interval == 0 and batch > 0:
                 cur_loss = total_loss / log_interval
                 elapsed = time.time() - start_time
                 log = '| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | loss {:5.2f} | ppl {:8.2f}'.format(
-                        epoch, batch, len(self.train_data) // self.bptt, self.scheduler.get_last_lr()[0],
+                        epoch, batch, len(self.train_data) // self.bptt, self.optimizer.get_last_lr(),
                                     elapsed * 1000 / log_interval,
                         cur_loss, math.exp(cur_loss))
                 log += '\n'
@@ -153,8 +207,14 @@ class Trainer:
                 print(log)
                 self.log_file.write(log)
 
+                csvlog = '{:5d};{:02.2f};{:5.2f};{:8.2f}\n'.format(self.stepcount, self.optimizer.get_last_lr(),cur_loss, math.exp(cur_loss))
+                self.log_csv.write(csvlog)
+
                 total_loss = 0
                 start_time = time.time()
+
+            self.stepcount += 1
+            
 
     def evaluate(self, eval_model, data_source):
         eval_model.eval()  # Turn on the evaluation mode
@@ -192,13 +252,17 @@ class Trainer:
             log += '\n'
 
             print(log)
+            print("steps:", trainer.stepcount)
             self.log_file.write(log)
+
+            epochlog = '{:3d};{:5.2f};{:8.2f}\n'.format(epoch, val_loss, math.exp(val_loss))
+            self.epochlog_csv.write(epochlog)
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 best_model = self.model
 
-            self.scheduler.step()
+            # self.scheduler.step()
 
         # time_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         # model_name = "model_{}.pth".format(time_string)
@@ -222,6 +286,7 @@ class Trainer:
 if __name__ == "__main__":
     trainer = Trainer()
     trainer.train()
+    print("steps:", trainer.stepcount)
 
     
 

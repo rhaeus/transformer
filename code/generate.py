@@ -16,8 +16,8 @@ class Node:
         self.sentence = sentence
         self.score = score
         self.step = step
-        self.len = 6
-        self.topk = 4
+        self.len = 5
+        self.topk = 5
         self.src = src
         self.generator = generator
         # self.tokenizer = get_tokenizer('basic_english')
@@ -218,7 +218,7 @@ class Generator:
       x = self.preprocess_text(source_sentence)
 
       # generated_sequence = self.generate_text(x,25,2)
-      len = 6
+      len = 60
       # ---
       generated_sequence, res, topk = self.generate_sequence_beam(x, len, 1)
       # print(generated_sequence)
@@ -249,8 +249,14 @@ class Generator:
         return words
 
 if __name__ == "__main__":
-    generator = Generator('data/all_hp.txt', 'model.pth', 'vocab')
-    generator.generate_text_beam("A cat was sitting")
-
+    generator = Generator('all_hp.txt', 'model.pth', 'vocab')
+    generator.generate_text_beam("Harry Potter and the")
+    generator.generate_text_beam("Harry Potter")
+    generator.generate_text_beam("Dumbledore walked through the great hall. The food on the tables looked delicious. Rons ")
+    generator.generate_text_beam("What is happening")
+    generator.generate_text_beam("Quidditch will be held")
+    generator.generate_text_beam("Harry Potter and the")
+    generator.generate_text_beam("Quidditch")
+    
 
     

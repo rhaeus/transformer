@@ -17,8 +17,8 @@ class TransformerModel(nn.Module):
 
         self.layer_norm = nn.LayerNorm(self.nhid)
         # torch.nn.TransformerDecoderLayer(d_model, nhead, dim_feedforward=2048, dropout=0.1, activation='relu')
-        decoder_layers = TransformerDecoderLayer(ninp, nhead, nhid, dropout)
-        self.transformer_decoder = TransformerDecoder(decoder_layers, nlayers, norm=self.layer_norm)
+        # decoder_layers = TransformerDecoderLayer(ninp, nhead, nhid, dropout)
+        # self.transformer_decoder = TransformerDecoder(decoder_layers, nlayers, norm=self.layer_norm)
 
         
     # self.decoder_layer = nn.TransformerDecoderLayer(d_model=hid_size, nhead = n_head, dim_feedforward=self.pf_size)
@@ -36,11 +36,31 @@ class TransformerModel(nn.Module):
         return mask
 
     def init_weights(self):
+        # tutorial 
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
 
         self.decoder.bias.data.zero_()
         self.decoder.weight.data.uniform_(-initrange, initrange)
+
+        # xavier v1
+        # for p in self.encoder.parameters():
+        #   if p.dim() > 1:
+        #       nn.init.xavier_uniform_(p)
+
+        # for p in self.decoder.parameters():
+        #   if p.dim() > 1:
+        #       nn.init.xavier_uniform_(p)
+
+        # for p in self.transformer_encoder.parameters():
+        #   if p.dim() > 1:
+        #       nn.init.xavier_uniform_(p)
+
+        # xavier v2
+        # self.decoder.bias.data.zero_()
+        # nn.init.xavier_uniform_(self.encoder.weight.data)
+        # nn.init.xavier_uniform_(self.decoder.weight.data)
+
 
     def forward(self, src, mask):
         # src.to(device)
